@@ -1,523 +1,495 @@
-# API Documentation
+# API Reference
 
-Base URL: `http://localhost:8080/api/v1`
-
-All authenticated endpoints require a JWT token in the Authorization header:
+## Base URL
 ```
-Authorization: Bearer YOUR_JWT_TOKEN
+Development: http://localhost:8080
+Production:  https://api.yourdomain.com
+```
+
+## Authentication
+All protected endpoints require a Bearer token:
+```
+Authorization: Bearer <jwt_token>
 ```
 
 ---
 
-## Authentication
+## Auth Endpoints
 
-### Register User
-**POST** `/auth/register`
+### Register
+```http
+POST /api/auth/register
+Content-Type: application/json
 
-Creates a new user account with KYC validation.
-
-**Request:**
-```json
 {
-  "phone_number": "254712345678",
-  "email": "user@example.com",
-  "password": "SecurePass123!",
-  "full_name": "John Doe",
-  "date_of_birth": "1990-01-15",
-  "national_id": "12345678",
-  "kra_pin": "A001234567Z"
+  "phone": "0712345678",
+  "password": "secure_password",
+  "country_code": "KE"
 }
-```
 
-**Response (201):**
-```json
+Response 201:
 {
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "message": "Registration successful. Please verify your account.",
-  "verification_required": true
+  "user_id": "uuid",
+  "access_token": "jwt",
+  "refresh_token": "jwt"
 }
 ```
 
 ### Login
-**POST** `/auth/login`
+```http
+POST /api/auth/login
+Content-Type: application/json
 
-Authenticates user and returns JWT token.
-
-**Request:**
-```json
 {
-  "phone_number": "254712345678",
-  "password": "SecurePass123!"
+  "phone": "0712345678",
+  "password": "secure_password"
+}
+
+Response 200:
+{
+  "access_token": "jwt",
+  "refresh_token": "jwt",
+  "expires_in": 900
 }
 ```
 
-**Response (200):**
-```json
+### Refresh Token
+```http
+POST /api/auth/refresh
+Content-Type: application/json
+
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-  "expires_in": 86400,
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "phone_number": "254712345678",
-    "full_name": "John Doe",
-    "is_verified": true
-  }
+  "refresh_token": "jwt"
 }
-```
 
----
-
-## User Management
-
-### Get User Profile
-**GET** `/users/me`
-
-Returns current user's profile.
-
-**Response (200):**
-```json
+Response 200:
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "phone_number": "254712345678",
-  "email": "user@example.com",
-  "full_name": "John Doe",
-  "country_code": "KE",
-  "currency": "KES",
-  "is_verified": true,
-  "created_at": "2026-01-15T10:30:00Z"
-}
-```
-
-### Update Profile
-**PUT** `/users/me`
-
-**Request:**
-```json
-{
-  "email": "newemail@example.com",
-  "daily_deposit_limit": 5000
-}
-```
-
-### Set Self-Exclusion
-**POST** `/users/me/self-exclude`
-
-**Request:**
-```json
-{
-  "duration_days": 30,
-  "reason": "Taking a break"
+  "access_token": "jwt",
+  "expires_in": 900
 }
 ```
 
 ---
 
-## Wallet & Payments
+## Wallet Endpoints
 
-### Get Wallet Balance
-**GET** `/users/me/wallet`
+### Get Balance
+```http
+GET /api/wallet/balance
+Authorization: Bearer <token>
 
-**Response (200):**
-```json
+Response 200:
 {
-  "balance": 5250.50,
+  "balance": 5000.00,
   "currency": "KES",
-  "bonus_balance": 100.00,
-  "today_deposit": 1000.00,
-  "daily_limit": 10000.00
+  "pending_withdrawals": 0
 }
 ```
 
-### Deposit (M-Pesa)
-**POST** `/payments/deposit`
+### Deposit (M-Pesa STK Push)
+```http
+POST /api/wallet/deposit
+Authorization: Bearer <token>
+Content-Type: application/json
 
-Initiates M-Pesa STK Push.
-
-**Request:**
-```json
 {
-  "phone_number": "254712345678",
-  "amount": 500
+  "amount": 500,
+  "phone": "0712345678"
+}
+
+Response 200:
+{
+  "transaction_id": "uuid",
+  "status": "pending",
+  "message": "Check your phone for M-Pesa prompt"
 }
 ```
 
-**Response (202):**
-```json
+### Withdraw (M-Pesa B2C)
+```http
+POST /api/wallet/withdraw
+Authorization: Bearer <token>
+Content-Type: application/json
+
 {
-  "checkout_request_id": "ws_CO_15012026103045678",
-  "message": "STK Push sent. Please enter M-Pesa PIN on your phone.",
-  "status": "PENDING"
+  "amount": 1000,
+  "phone": "0712345678"
 }
-```
 
-### Withdraw (M-Pesa)
-**POST** `/payments/withdraw`
-
-Initiates instant M-Pesa payout.
-
-**Request:**
-```json
+Response 200:
 {
-  "phone_number": "254712345678",
-  "amount": 1000
-}
-```
-
-**Response (202):**
-```json
-{
-  "transaction_id": "txn_550e8400-e29b-41d4-a716",
-  "message": "Withdrawal initiated. M-Pesa payout in progress.",
-  "estimated_time": "60 seconds"
+  "transaction_id": "uuid",
+  "status": "processing",
+  "message": "Withdrawal initiated. Funds will arrive in ~30 seconds"
 }
 ```
 
 ### Transaction History
-**GET** `/payments/transactions?limit=20&offset=0`
+```http
+GET /api/wallet/transactions?page=1&limit=20
+Authorization: Bearer <token>
 
-**Response (200):**
-```json
+Response 200:
 {
   "transactions": [
     {
-      "id": "txn_123",
-      "type": "DEPOSIT",
+      "id": "uuid",
+      "type": "credit",
       "amount": 500.00,
-      "currency": "KES",
-      "status": "COMPLETED",
-      "provider": "MPESA",
-      "created_at": "2026-04-15T10:30:00Z"
-    },
-    {
-      "id": "txn_124",
-      "type": "BET_PLACED",
-      "amount": -100.00,
-      "currency": "KES",
-      "status": "COMPLETED",
-      "reference_id": "bet_789",
-      "created_at": "2026-04-15T10:35:00Z"
+      "balance_before": 4500.00,
+      "balance_after": 5000.00,
+      "reference": "QKJ1234ABC",
+      "created_at": "2026-01-15T10:30:00Z"
     }
   ],
   "total": 45,
-  "limit": 20,
-  "offset": 0
+  "page": 1,
+  "limit": 20
 }
 ```
 
 ---
 
-## Sports Betting
+## Betting Endpoints
 
-### Get Live Matches
-**GET** `/odds/live`
+### List Matches
+```http
+GET /api/matches?sport=football&status=upcoming&page=1
+Authorization: Bearer <token>
 
-Returns all in-play matches with live odds.
-
-**Response (200):**
-```json
+Response 200:
 {
   "matches": [
     {
-      "event_id": "match_12345",
-      "sport": "football",
-      "league": "English Premier League",
-      "home_team": "Arsenal",
-      "away_team": "Chelsea",
-      "kick_off": "2026-04-15T15:00:00Z",
-      "status": "LIVE",
-      "score": "2-1",
-      "markets": {
-        "1X2": {
-          "home": 1.85,
-          "draw": 4.20,
-          "away": 4.50
-        },
-        "over_under_2.5": {
-          "over": 1.90,
-          "under": 1.95
-        }
+      "id": "uuid",
+      "home_team": "Gor Mahia",
+      "away_team": "AFC Leopards",
+      "league": "Kenyan Premier League",
+      "start_time": "2026-01-15T15:00:00Z",
+      "odds": {
+        "home": 1.85,
+        "draw": 3.20,
+        "away": 4.50
       }
     }
   ]
 }
 ```
 
-### Place Bet
-**POST** `/bets`
+### Get Match Details
+```http
+GET /api/matches/{match_id}
+Authorization: Bearer <token>
 
-**Request (Single Bet):**
-```json
+Response 200:
 {
-  "bet_type": "SINGLE",
+  "id": "uuid",
+  "home_team": "Gor Mahia",
+  "away_team": "AFC Leopards",
+  "league": "Kenyan Premier League",
+  "start_time": "2026-01-15T15:00:00Z",
+  "markets": [
+    {
+      "name": "1X2",
+      "selections": [
+        {"name": "Home", "odds": 1.85},
+        {"name": "Draw", "odds": 3.20},
+        {"name": "Away", "odds": 4.50}
+      ]
+    },
+    {
+      "name": "Over/Under 2.5",
+      "selections": [
+        {"name": "Over", "odds": 2.10},
+        {"name": "Under", "odds": 1.75}
+      ]
+    }
+  ]
+}
+```
+
+### Place Bet (Single)
+```http
+POST /api/bets
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "bet_type": "single",
   "stake": 100,
   "selections": [
     {
-      "event_id": "match_12345",
-      "market_id": "1X2",
-      "outcome_name": "Arsenal",
-      "odds": 2.50
+      "match_id": "uuid",
+      "market": "1X2",
+      "selection": "Home",
+      "odds": 1.85
     }
   ]
 }
+
+Response 201:
+{
+  "bet_id": "uuid",
+  "status": "active",
+  "stake": 100.00,
+  "potential_winnings": 185.00,
+  "tax_deducted": 15.00,
+  "net_stake": 85.00
+}
 ```
 
-**Request (Multi Bet):**
-```json
+### Place Bet (Multi/Accumulator)
+```http
+POST /api/bets
+Authorization: Bearer <token>
+Content-Type: application/json
+
 {
-  "bet_type": "MULTI",
-  "stake": 500,
+  "bet_type": "multi",
+  "stake": 200,
   "selections": [
-    {
-      "event_id": "match_12345",
-      "market_id": "1X2",
-      "outcome_name": "Arsenal",
-      "odds": 2.10
-    },
-    {
-      "event_id": "match_67890",
-      "market_id": "1X2",
-      "outcome_name": "Barcelona",
-      "odds": 1.75
-    }
+    {"match_id": "uuid1", "market": "1X2", "selection": "Home", "odds": 1.85},
+    {"match_id": "uuid2", "market": "1X2", "selection": "Away", "odds": 2.50},
+    {"match_id": "uuid3", "market": "O/U", "selection": "Over", "odds": 1.90}
   ]
 }
-```
 
-**Response (201):**
-```json
+Response 201:
 {
-  "bet_id": "bet_550e8400-e29b-41d4",
-  "status": "PENDING",
-  "stake": 100.00,
-  "total_odds": 2.50,
-  "potential_win": 250.00,
-  "placed_at": "2026-04-15T10:45:00Z",
-  "message": "Bet placed successfully"
-}
-```
-
-### Get Bet Details
-**GET** `/bets/{bet_id}`
-
-**Response (200):**
-```json
-{
-  "id": "bet_550e8400-e29b-41d4",
-  "user_id": "user_123",
-  "bet_type": "SINGLE",
-  "stake": 100.00,
-  "currency": "KES",
-  "total_odds": 2.50,
-  "potential_win": 250.00,
-  "actual_win": 0.00,
-  "status": "PENDING",
-  "selections": [
-    {
-      "event_id": "match_12345",
-      "event_name": "Arsenal vs Chelsea",
-      "market_name": "Match Winner",
-      "outcome_name": "Arsenal",
-      "odds": 2.50,
-      "status": "PENDING"
-    }
-  ],
-  "placed_at": "2026-04-15T10:45:00Z"
+  "bet_id": "uuid",
+  "status": "active",
+  "stake": 200.00,
+  "combined_odds": 8.78,
+  "potential_winnings": 1755.00,
+  "tax_deducted": 30.00,
+  "net_stake": 170.00
 }
 ```
 
 ### Bet History
-**GET** `/bets/history?status=ALL&limit=20&offset=0`
+```http
+GET /api/bets?status=active&page=1
+Authorization: Bearer <token>
 
-Query Parameters:
-- `status`: ALL, PENDING, WON, LOST, VOID
-- `limit`: Number of results (max 100)
-- `offset`: Pagination offset
-
-**Response (200):**
-```json
+Response 200:
 {
   "bets": [
     {
-      "id": "bet_123",
+      "id": "uuid",
+      "type": "single",
+      "status": "active",
       "stake": 100.00,
-      "total_odds": 3.50,
-      "potential_win": 350.00,
-      "actual_win": 350.00,
-      "status": "WON",
-      "placed_at": "2026-04-14T18:30:00Z",
-      "settled_at": "2026-04-14T21:45:00Z"
-    }
-  ],
-  "total": 127,
-  "limit": 20,
-  "offset": 0
-}
-```
-
----
-
-## Crash Game (Aviator)
-
-### Get Current Game
-**GET** `/games/crash/current`
-
-**Response (200):**
-```json
-{
-  "game_id": "game_550e8400",
-  "round_number": 42,
-  "status": "RUNNING",
-  "current_multiplier": 2.45,
-  "server_seed_hash": "7a3f...e92c",
-  "started_at": "2026-04-15T11:00:00Z",
-  "active_players": 1247
-}
-```
-
-### Game History
-**GET** `/games/crash/history?limit=10`
-
-**Response (200):**
-```json
-{
-  "games": [
-    {
-      "round_number": 41,
-      "crash_point": 3.52,
-      "server_seed": "revealed_after_crash",
-      "started_at": "2026-04-15T10:59:45Z",
-      "crashed_at": "2026-04-15T11:00:03Z"
-    },
-    {
-      "round_number": 40,
-      "crash_point": 1.23,
-      "server_seed": "revealed_after_crash",
-      "started_at": "2026-04-15T10:59:30Z",
-      "crashed_at": "2026-04-15T10:59:43Z"
+      "potential_winnings": 185.00,
+      "selections": [...],
+      "created_at": "2026-01-15T10:30:00Z"
     }
   ]
 }
 ```
 
-### Place Game Bet
-**POST** `/games/crash/bet`
+---
 
-**Request:**
+## Crash Game Endpoints
+
+### WebSocket Connection
+```javascript
+const ws = new WebSocket('ws://localhost:8080/ws/games/crash/{game_id}');
+
+// Connection message
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    action: 'join',
+    token: 'jwt_token'
+  }));
+};
+
+// Game events
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  switch(data.type) {
+    case 'round_start':
+      // New round starting
+      console.log('Round:', data.round_id);
+      console.log('Commitment:', data.commitment);
+      break;
+      
+    case 'tick':
+      // Multiplier update (every 100ms)
+      console.log('Multiplier:', data.multiplier + 'x');
+      break;
+      
+    case 'crash':
+      // Round ended
+      console.log('Crashed at:', data.crash_point + 'x');
+      break;
+      
+    case 'bet_confirmed':
+      // Bet placed successfully
+      console.log('Bet confirmed:', data.bet_id);
+      break;
+      
+    case 'cashout_result':
+      // Cashout completed
+      console.log('Cashed out at:', data.cashout_multiplier + 'x');
+      console.log('Winnings:', data.winnings);
+      break;
+  }
+};
+```
+
+### Place Bet (via WebSocket)
 ```json
 {
+  "action": "place_bet",
   "amount": 100,
-  "auto_cashout": 2.00
+  "auto_cashout": 2.0
 }
 ```
 
-**Response (201):**
+### Cashout (via WebSocket)
 ```json
 {
-  "bet_id": "game_bet_123",
-  "game_id": "game_550e8400",
-  "amount": 100.00,
-  "status": "ACTIVE",
-  "message": "Bet placed. Connect to WebSocket for live updates."
+  "action": "cashout"
 }
 ```
 
-### Verify Game (Provably Fair)
-**POST** `/games/crash/verify`
+### Provably Fair Commitment
+```http
+POST /api/fairness/commitment
+Authorization: Bearer <token>
+Content-Type: application/json
 
-**Request:**
-```json
 {
-  "round_number": 40,
-  "server_seed": "revealed_seed",
-  "client_seed": "combined_client_seed",
-  "claimed_crash": 1.23
+  "server_seed_hash": "sha256_of_server_seed"
+}
+
+Response 200:
+{
+  "round_id": "uuid",
+  "commitment": "sha256_hash",
+  "client_seed": "user_provided_or_random"
 }
 ```
 
-**Response (200):**
-```json
+### Verify Round Fairness
+```http
+GET /api/fairness/verify/{round_id}
+Authorization: Bearer <token>
+
+Response 200:
 {
-  "verified": true,
-  "calculated_crash": 1.23,
-  "message": "Game result is provably fair"
+  "round_id": "uuid",
+  "server_seed": "revealed_after_round",
+  "client_seed": "...",
+  "round_number": 12345,
+  "crash_point": 3.42,
+  "verification_hash": "sha256",
+  "is_valid": true
 }
 ```
 
 ---
 
-## WebSocket API
+## KYC & Compliance Endpoints
 
-### Connect to Crash Game
-```
-ws://localhost:8080/ws/games/{game_id}
-```
+### Verify Identity
+```http
+POST /api/kyc/verify-user
+Authorization: Bearer <token>
+Content-Type: application/json
 
-### Client → Server Messages
-
-**Place Bet:**
-```json
 {
-  "action": "place_bet",
-  "amount": 100,
-  "auto_cashout": null
+  "id_type": "NATIONAL_ID",
+  "id_number": "12345678",
+  "first_name": "John",
+  "last_name": "Doe",
+  "date_of_birth": "1990-01-15"
+}
+
+Response 200:
+{
+  "verification_id": "uuid",
+  "status": "verified",
+  "confidence_score": 0.98
 }
 ```
 
-**Cashout:**
-```json
+### Self-Exclusion
+```http
+POST /api/compliance/self-exclude
+Authorization: Bearer <token>
+Content-Type: application/json
+
 {
-  "action": "cashout",
-  "bet_id": "game_bet_123"
+  "duration_months": 6,
+  "reason": "responsible_gaming"
+}
+
+Response 200:
+{
+  "exclusion_id": "uuid",
+  "expires_at": "2026-07-15T00:00:00Z",
+  "message": "You have been self-excluded for 6 months"
 }
 ```
 
-### Server → Client Messages
+### Deposit Limits
+```http
+GET /api/compliance/deposit-limits
+Authorization: Bearer <token>
 
-**Game State Update:**
-```json
+Response 200:
 {
-  "type": "state_update",
-  "game_id": "game_123",
-  "round_number": 42,
-  "status": "RUNNING",
-  "current_multiplier": 2.45,
-  "time_remaining": null,
-  "active_players": 1247
+  "daily_limit": 50000,
+  "daily_used": 15000,
+  "weekly_limit": 200000,
+  "weekly_used": 45000,
+  "monthly_limit": 500000,
+  "monthly_used": 120000
 }
 ```
 
-**Bet Confirmed:**
-```json
-{
-  "type": "bet_confirmed",
-  "bet_id": "game_bet_123",
-  "amount": 100.00
-}
-```
+---
 
-**Game Crashed:**
-```json
+## Callbacks (Internal)
+
+### M-Pesa Deposit Callback
+```http
+POST /api/mpesa/callback
+Content-Type: application/json
+
 {
-  "type": "crashed",
-  "crash_point": 3.52,
-  "server_seed": "revealed_seed",
-  "your_result": {
-    "bet_id": "game_bet_123",
-    "cashed_out": false,
-    "payout": 0.00,
-    "status": "LOST"
+  "Body": {
+    "stkCallback": {
+      "MerchantRequestID": "12345",
+      "CheckoutRequestID": "ws_CO_12345",
+      "ResultCode": 0,
+      "ResultDesc": "Success",
+      "CallbackMetadata": {
+        "Item": [
+          {"Name": "Amount", "Value": 500},
+          {"Name": "MpesaReceiptNumber", "Value": "QKJ1234ABC"},
+          {"Name": "PhoneNumber", "Value": 254712345678}
+        ]
+      }
+    }
   }
 }
 ```
 
-**Cashout Successful:**
-```json
+### M-Pesa Withdrawal Callback
+```http
+POST /api/mpesa/b2c/callback
+Content-Type: application/json
+
 {
-  "type": "cashout_success",
-  "bet_id": "game_bet_123",
-  "multiplier": 2.45,
-  "payout": 245.00
+  "Result": {
+    "ResultCode": 0,
+    "ResultDesc": "Success",
+    "TransactionID": "QKJ1234ABC",
+    "OrgAccountBalance": 100000
+  }
 }
 ```
 
@@ -526,79 +498,31 @@ ws://localhost:8080/ws/games/{game_id}
 ## Error Responses
 
 All errors follow this format:
-
-**Response (4xx/5xx):**
 ```json
 {
   "error": {
     "code": "INSUFFICIENT_BALANCE",
-    "message": "Your balance is too low to place this bet",
+    "message": "Your balance is insufficient for this bet",
     "details": {
-      "required": 100.00,
-      "available": 50.00
+      "current_balance": 50.00,
+      "required": 100.00
     }
   }
 }
 ```
 
-### Common Error Codes
-
+### Error Codes
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Invalid or missing authentication token |
-| `INSUFFICIENT_BALANCE` | 400 | Wallet balance too low |
-| `USER_NOT_VERIFIED` | 403 | KYC verification required |
-| `SELF_EXCLUDED` | 403 | User has self-excluded |
-| `INVALID_BET` | 400 | Bet configuration is invalid |
-| `ODDS_CHANGED` | 409 | Odds have changed since bet was created |
-| `MARKET_CLOSED` | 400 | Market is no longer accepting bets |
-| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
-| `MPESA_TIMEOUT` | 504 | M-Pesa service timeout |
-| `GAME_NOT_ACTIVE` | 400 | Cannot bet on inactive game |
-
----
-
-## Rate Limits
-
-| Endpoint | Limit |
-|----------|-------|
-| `/auth/login` | 5 per minute per IP |
-| `/bets` | 10 per minute per user |
-| `/payments/withdraw` | 3 per hour per user |
-| `/games/crash/bet` | 20 per minute per user |
-| All other endpoints | 100 per minute per IP |
-
----
-
-## Webhooks (M-Pesa Callbacks)
-
-### STK Push Callback
-**POST** `/api/mpesa/callback`
-
-Safaricom sends this when a user completes/cancels the STK Push.
-
-**Request from M-Pesa:**
-```json
-{
-  "Body": {
-    "stkCallback": {
-      "MerchantRequestID": "29115-34620561-1",
-      "CheckoutRequestID": "ws_CO_191220191020363925",
-      "ResultCode": 0,
-      "ResultDesc": "The service request is processed successfully.",
-      "CallbackMetadata": {
-        "Item": [
-          {"Name": "Amount", "Value": 500},
-          {"Name": "MpesaReceiptNumber", "Value": "NLJ7RT61SV"},
-          {"Name": "TransactionDate", "Value": 20191219102115},
-          {"Name": "PhoneNumber", "Value": 254708374149}
-        ]
-      }
-    }
-  }
-}
-```
-
----
-
-**For more details, see the source code or contact support.**
+| `UNAUTHORIZED` | 401 | Invalid or expired token |
+| `FORBIDDEN` | 403 | Insufficient permissions |
+| `NOT_FOUND` | 404 | Resource not found |
+| `VALIDATION_ERROR` | 400 | Invalid request data |
+| `INSUFFICIENT_BALANCE` | 400 | Not enough funds |
+| `BET_LIMIT_EXCEEDED` | 400 | Stake exceeds limit |
+| `ODDS_CHANGED` | 409 | Odds have changed |
+| `MATCH_STARTED` | 409 | Match already started |
+| `SELF_EXCLUDED` | 403 | User is self-excluded |
+| `KYC_REQUIRED` | 403 | KYC verification required |
+| `RATE_LIMITED` | 429 | Too many requests |
+| `INTERNAL_ERROR` | 500 | Server error |
