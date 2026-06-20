@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "go run cmd/gateway/main.go"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+
+[deploy.env]
+PORT = "8080"
