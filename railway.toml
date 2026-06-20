@@ -1,8 +1,8 @@
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
+dockerfilePath = "deployments/docker/Dockerfile"
 
 [deploy]
-startCommand = "go run cmd/gateway/main.go"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
